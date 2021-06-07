@@ -271,11 +271,11 @@ func encryptKeys(keys, files, identities []string, in io.Reader, out io.Writer, 
 			logFatalf("Error reading %q: %v", name, err)
 		}
 		for _, id := range ids {
-			r, err := identityToRecipient(id)
+			r, err := identityToRecipients(id)
 			if err != nil {
 				logFatalf("Internal error processing %q: %v", name, err)
 			}
-			recipients = append(recipients, r)
+			recipients = append(recipients, r...)
 		}
 	}
 	encrypt(recipients, in, out, armor)
@@ -350,16 +350,22 @@ func passphrasePrompt() (string, error) {
 	return string(pass), nil
 }
 
-func identityToRecipient(id age.Identity) (age.Recipient, error) {
+func identityToRecipients(id age.Identity) ([]age.Recipient, error) {
 	switch id := id.(type) {
 	case *age.X25519Identity:
-		return id.Recipient(), nil
+		return []age.Recipient{id.Recipient()}, nil
 	case *agessh.RSAIdentity:
-		return id.Recipient(), nil
+		return []age.Recipient{id.Recipient()}, nil
 	case *agessh.Ed25519Identity:
-		return id.Recipient(), nil
+		return []age.Recipient{id.Recipient()}, nil
 	case *agessh.EncryptedSSHIdentity:
-		return id.Recipient()
+		r, err := id.Recipient()
+		if err != nil {
+			return nil, err
+		}
+		return []age.Recipient{r}, nil
+	case *EncryptedIdentity:
+		return id.Recipients()
 	}
 	return nil, fmt.Errorf("unexpected identity type: %T", id)
 }
